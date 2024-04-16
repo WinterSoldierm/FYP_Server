@@ -77,6 +77,7 @@ from concurrent.futures import ThreadPoolExecutor
 import plotly.express as px
 import networkx as nx
 import plotly.graph_objects as go
+import pandas as pd
 
 
 
@@ -492,22 +493,25 @@ def perform_mac_ip_vendor_mapping(pcap_file_path):
                 vendor[dst_mac] = manuf_db.get_manuf(dst_mac)
 
     for mac in ip_address_mapping:
-        mac_ip_vendor_mapping[mac] = {"IP": list(ip_address_mapping[mac]), "Vendor": vendor.get(mac, "Unknown")}
+        mac_ip_vendor_mapping[mac] = {"IP": list(ip_address_mapping[mac]), "Vendors": vendor.get(mac, "Unknown")}
 
     return mac_ip_vendor_mapping
 
-def perform_device_classification(mac_ip_vendor_mapping, vendor_DB):
+def perform_device_classification(mac_ip_vendor_mapping, vendor_DB_path):
+    # Load vendor DB from CSV file
+    vendor_DB = pd.read_csv(vendor_DB_path)
+
     for device in mac_ip_vendor_mapping:
-        vendor = mac_ip_vendor_mapping[device]['Vendor']
-        if vendor in vendor_DB['Vendor'].values:
-            category = vendor_DB[vendor_DB['Vendor'] == vendor]['Category'].iloc[0]
+        vendor = mac_ip_vendor_mapping[device]['Vendors']
+        if vendor in vendor_DB['Vendors'].values:
+            category = vendor_DB[vendor_DB['Vendors'] == vendor]['Notes'].iloc[0]
             mac_ip_vendor_mapping[device]['category'] = category
         else:
             mac_ip_vendor_mapping[device]['category'] = 'Unknown'
 
     return mac_ip_vendor_mapping
 
-@app.route('/device-classification', methods=['GET'])
+@app.route('/device-classification', methods=['POST'])
 def device_classification():
     try:
         pcap_file_path = os.path.join(UPLOAD_FOLDER, 'uploaded.pcap')
@@ -517,13 +521,14 @@ def device_classification():
 
         mac_ip_vendor_mapping = perform_mac_ip_vendor_mapping(pcap_file_path)
 
-        vendor_DB = {}  # Update with your vendor database
-        classified_devices = perform_device_classification(mac_ip_vendor_mapping, vendor_DB)
+        # Path to the vendor database CSV file
+        vendor_DB_path = os.path.join(UPLOAD_FOLDER, 'vendors_wireshark_DB.csv')
+
+        classified_devices = perform_device_classification(mac_ip_vendor_mapping, vendor_DB_path)
 
         return jsonify({'success': 'Device classification successful', 'classified_devices': classified_devices}), 200
     except Exception as e:
         return jsonify({'error': f'Error during device classification: {str(e)}'}), 500
-
 
 if __name__ == "__main__":
     app.run(debug=True)
