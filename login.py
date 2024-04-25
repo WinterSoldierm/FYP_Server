@@ -59,7 +59,7 @@ def login_user():
         # Check if the provided password matches the hashed password stored in the database
         if bcrypt.checkpw(data['password'].encode('utf-8'), user['password']):
             # Password is correct, user is authenticated
-            return jsonify({"message": "Login successful"}), 200
+            return jsonify({"user": {"name": user['name'], "email": user['email']}}), 200
         else:
             # Password is incorrect
             return jsonify({"error": "Invalid password"}), 401
