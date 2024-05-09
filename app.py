@@ -1,72 +1,3 @@
-# from flask import Flask, request, jsonify
-# from flask_cors import CORS
-# import os
-# import manuf
-# from scapy.all import rdpcap, Ether
-
-# app = Flask(__name__)
-# CORS(app)
-
-# UPLOAD_FOLDER = 'C:\\Users\\A_R_COMPUTERS\\OneDrive\\Desktop\\FYP\\server\\PCAP'
-# ALLOWED_EXTENSIONS = {'pcap'}
-
-# app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-# def allowed_file(filename):
-#     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-# def get_file_path(filename):
-#     return os.path.join(app.config['UPLOAD_FOLDER'], filename)
-
-# @app.route('/')
-# def hello():
-#     return 'Hello from the Python backend!'
-
-# @app.route('/upload', methods=['POST'])
-# def upload_file():
-#     try:
-#         if 'file' not in request.files:
-#             return jsonify({'error': 'No file part'}), 400
-
-#         file = request.files['file']
-
-#         if file.filename == '':
-#             return jsonify({'error': 'No selected file'}), 400
-
-#         if file and allowed_file(file.filename):
-#             file_path = get_file_path('uploaded.pcap')
-#             file.save(file_path)
-#             return jsonify({'success': 'File uploaded successfully'}), 200
-#         else:
-#             return jsonify({'error': 'Invalid file type'}), 400
-#     except Exception as e:
-#         return jsonify({'error': f'Error during file upload: {str(e)}'}), 500
-
-# @app.route('/mac-oui-lookup', methods=["GET", "POST"])
-# def mac_oui_lookup():
-#     try:
-#         file_path = get_file_path('uploaded.pcap')
-
-#         manuf_db = manuf.MacParser()
-#         vendor = {}
-
-#         pcap_file = rdpcap(file_path)
-#         for packet in pcap_file:
-#             if packet.haslayer(Ether):
-#                 add = packet[Ether].src
-#                 vendor[add] = manuf_db.get_manuf(add)
-
-#         return jsonify({'success': 'MAC OUI lookup successful', 'mac_lookup': vendor}), 200
-#     except Exception as e:
-#         return jsonify({'error': f'Error performing MAC OUI lookup: {str(e)}'}), 500
-
-# if __name__ == '__main__':
-#     app.run(debug=True)
-
-
-
-
-
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
@@ -83,7 +14,7 @@ from login import login_bp
 import csv
 from device_clssification import  perform_device_classification,perform_mac_ip_vendor_mapping
 from find_location import perform_mac_ip_mapping
-
+from os_identificatioin import get_ttl_and_window_size
 
 
 app = Flask(__name__)
@@ -612,7 +543,53 @@ def get_ip_addresses():
     return jsonify(ip_addresses)
     
     
-    
+@app.route('/os_identification', methods=['POST'])
+def os_identification():
+    # Assuming the pcap file is uploaded through a form with the name 'pcap_file'
+    pcap_file = os.path.join(UPLOAD_FOLDER, 'uploaded.pcap')
+
+    # Process the pcap file
+    packet_list = rdpcap(pcap_file)
+    device_info = get_ttl_and_window_size(packet_list)
+
+    # OS Identification
+    for mac_address in device_info:
+        if 'Window_Size' in device_info[mac_address] and 'TTL' in device_info[mac_address]:
+            if device_info[mac_address]['TTL'] == 64 and device_info[mac_address]['Window_Size'] == 8760:
+                device_info[mac_address]['OS'] = "Solaris 7"
+            elif device_info[mac_address]['TTL'] == 64 and device_info[mac_address]['Window_Size'] == 16384:
+                device_info[mac_address]['OS'] = "AIX 4.3"
+            elif device_info[mac_address]['TTL'] == 128 and device_info[mac_address]['Window_Size'] == 16384:
+                device_info[mac_address]['OS'] = "Windows 2000"
+            elif device_info[mac_address]['TTL'] == 32 and device_info[mac_address]['Window_Size'] == 8192:
+                device_info[mac_address]['OS'] = "Windows 95"
+            elif device_info[mac_address]['TTL'] == 128 and device_info[mac_address]['Window_Size'] == 65535:
+                device_info[mac_address]['OS'] = "Windows XP"
+            elif device_info[mac_address]['TTL'] == 25 and device_info[mac_address]['Window_Size'] == 4128:
+                device_info[mac_address]['OS'] = "iOS 12.4 (Cisco Routers)"
+            elif device_info[mac_address]['TTL'] == 255 and device_info[mac_address]['Window_Size'] == 8760:
+                device_info[mac_address]['OS'] = "Solaris 7"
+            elif device_info[mac_address]['TTL'] == 64 and device_info[mac_address]['Window_Size'] == 5840:
+                device_info[mac_address]['OS'] = "Linux (Kernel 2.4 and 2.6)"
+            elif device_info[mac_address]['TTL'] == 64 and device_info[mac_address]['Window_Size'] == 5720:
+                device_info[mac_address]['OS'] = "Google Linux"
+            elif device_info[mac_address]['TTL'] == 64 and device_info[mac_address]['Window_Size'] == 65535:
+                device_info[mac_address]['OS'] = "FreeBSD"
+            elif device_info[mac_address]['TTL'] == 128 and device_info[mac_address]['Window_Size'] == 8192:
+                device_info[mac_address]['OS'] = "HP-UX 11.11"
+            elif device_info[mac_address]['TTL'] == 128 and device_info[mac_address]['Window_Size'] == 65535:
+                device_info[mac_address]['OS'] = "Ubuntu Linux"
+            elif device_info[mac_address]['TTL'] == 64 and device_info[mac_address]['Window_Size'] == 5270:
+                device_info[mac_address]['OS'] = "Google's customized Linux"
+            elif device_info[mac_address]['TTL'] == 64 and device_info[mac_address]['Window_Size'] == 501:
+                device_info[mac_address]['OS'] = "Linux Ubuntu 10.04"
+            else:
+                device_info[mac_address]['OS'] = "Unknown"
+        else:
+            device_info[mac_address]['OS'] = "Unknown"
+
+    # Return the OS information as JSON response
+    return jsonify(device_info)    
 
 if __name__ == "__main__":
     app.run(debug=True)
