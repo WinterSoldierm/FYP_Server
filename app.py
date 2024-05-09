@@ -80,6 +80,10 @@ import plotly.graph_objects as go
 import pandas as pd
 from dbConnection import connect_to_mongodb
 from login import login_bp
+import csv
+from device_clssification import  perform_device_classification,perform_mac_ip_vendor_mapping
+from find_location import perform_mac_ip_mapping
+
 
 
 app = Flask(__name__)
@@ -102,7 +106,7 @@ app.register_blueprint(login_bp, url_prefix='/auth')
 
 
 UPLOAD_FOLDER = 'C:\\Users\\A_R_COMPUTERS\\OneDrive\\Desktop\\FYP\\server\\PCAP'
-ALLOWED_EXTENSIONS = {'pcap'}
+ALLOWED_EXTENSIONS = {'pcap','pcapng'}
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 executor = ThreadPoolExecutor()
@@ -385,6 +389,35 @@ def generate_protocol_distribution():
         return jsonify({'error': f'Error generating Protocol Distribution: {str(e)}'}), 500
 
 # Define a route to handle the active devices request
+# @app.route('/active_devices', methods=['POST'])
+# def active_devices():
+#     try:
+#         # Get the file path of the uploaded pcap file
+#         file_path = get_file_path('uploaded.pcap')
+        
+#         # Read the pcap file
+#         packets = rdpcap(file_path)
+
+#         # Initialize a set to store active MAC addresses
+#         active_macs = set()
+
+#         # Iterate over each packet in the pcap file
+#         for packet in packets:
+#             # Check if the packet contains Ethernet header
+#             if Ether in packet:
+#                 # Extract source and destination MAC addresses
+#                 src_mac = packet[Ether].src
+#                 dst_mac = packet[Ether].dst
+#                 # Add both source and destination MAC addresses to the set of active MAC addresses
+#                 active_macs.add(src_mac)
+#                 active_macs.add(dst_mac)
+
+#         # Convert the set of active MAC addresses to a list and return as JSON response
+#         return jsonify({'active_devices': list(active_macs)}), 200
+#     except Exception as e:
+#         # Return error message if any exception occurs
+#         return jsonify({'error': f'Error retrieving active devices: {str(e)}'}), 500
+
 @app.route('/active_devices', methods=['POST'])
 def active_devices():
     try:
@@ -394,27 +427,112 @@ def active_devices():
         # Read the pcap file
         packets = rdpcap(file_path)
 
-        # Initialize a set to store active MAC addresses
-        active_macs = set()
+        # Extract unique MAC addresses from source and destination fields in packets
+        mac_add_list_src = set(packet[0].src for packet in packets)
+        mac_add_list_dst = set(packet[0].dst for packet in packets)
+
+        # Combine unique source and destination MAC addresses
+        unique_mac_addresses = set(mac_add_list_src.union(mac_add_list_dst))
+
+        # Remove Broadcast Addresses
+        if 'ff:ff:ff:ff:ff:ff' in unique_mac_addresses:
+            unique_mac_addresses.remove('ff:ff:ff:ff:ff:ff')
+
+        # Initialize lists to store active and inactive MAC addresses
+        inactive_devices = []
+        active_devices = []
 
         # Iterate over each packet in the pcap file
         for packet in packets:
             # Check if the packet contains Ethernet header
             if Ether in packet:
-                # Extract source and destination MAC addresses
+                # Extract source MAC address
                 src_mac = packet[Ether].src
-                dst_mac = packet[Ether].dst
-                # Add both source and destination MAC addresses to the set of active MAC addresses
-                active_macs.add(src_mac)
-                active_macs.add(dst_mac)
+                # Check if the source MAC address is in the unique list of MAC addresses
+                if src_mac in unique_mac_addresses:
+                    active_devices.append(src_mac)
+                else:
+                    inactive_devices.append(src_mac)
 
-        # Convert the set of active MAC addresses to a list and return as JSON response
-        return jsonify({'active_devices': list(active_macs)}), 200
+        # Return the list of active and inactive devices as JSON response
+        return jsonify({'active_devices': list(set(active_devices)), 'inactive_devices': list(set(inactive_devices))}), 200
     except Exception as e:
         # Return error message if any exception occurs
         return jsonify({'error': f'Error retrieving active devices: {str(e)}'}), 500
 
 
+        
+
+
+# def perform_mac_ip_vendor_mapping(pcap_file_path):
+#     manuf_db = manuf.MacParser()
+#     mac_ip_vendor_mapping = {}
+#     vendor = {}
+#     ip_address_mapping = {}
+
+#     packets = rdpcap(pcap_file_path)
+#     for packet in packets:
+#         if Ether in packet:
+#             src_mac = packet[Ether].src
+#             dst_mac = packet[Ether].dst
+#             if IP in packet:
+#                 src_ip = packet[IP].src
+#                 dst_ip = packet[IP].dst
+#                 ip_address_mapping.setdefault(src_mac, set()).add(src_ip)
+#                 ip_address_mapping.setdefault(dst_mac, set()).add(dst_ip)
+#                 vendor[src_mac] = manuf_db.get_manuf(src_mac)
+#                 vendor[dst_mac] = manuf_db.get_manuf(dst_mac)
+
+#     for mac in ip_address_mapping:
+#         mac_ip_vendor_mapping[mac] = {"IP": list(ip_address_mapping[mac]), "Vendors": vendor.get(mac, "Unknown")}
+
+#     return mac_ip_vendor_mapping
+
+# def perform_device_classification(mac_ip_vendor_mapping, vendor_DB_path):
+#     # Load vendor DB from CSV file
+#     vendor_DB = pd.read_csv(vendor_DB_path)
+
+#     # Debugging: Print keys of mac_ip_vendor_mapping
+#     # print("Keys in mac_ip_vendor_mapping:", mac_ip_vendor_mapping.keys())
+
+#     for device in mac_ip_vendor_mapping:
+#         # Debugging: Print mac_ip_vendor_mapping structure
+#         # print("Device:", device)
+#         # print("mac_ip_vendor_mapping[device]:", mac_ip_vendor_mapping[device])
+
+#         # Access vendor information
+#         vendor_info = mac_ip_vendor_mapping[device].get('Vendors')  # Ensure consistent capitalization
+#         if vendor_info:
+#             vendor = vendor_info[0]  # Assuming it's a list, adjust if necessary
+#             if vendor in vendor_DB['Vendor'].values:
+#                 category = vendor_DB[vendor_DB['Vendor'] == vendor]['Category'].iloc[0]
+#                 mac_ip_vendor_mapping[device]['category'] = category
+#             else:
+#                 mac_ip_vendor_mapping[device]['category'] = 'Unknown'
+#         else:
+#             mac_ip_vendor_mapping[device]['category'] = 'Unknown'
+
+#     return mac_ip_vendor_mapping
+
+# @app.route('/device-classification', methods=['POST'])
+# def device_classification():
+#     try:
+#         pcap_file_path = os.path.join(UPLOAD_FOLDER, 'uploaded.pcap')
+
+#         if not os.path.isfile(pcap_file_path):
+#             return jsonify({'error': 'No pcap file uploaded'}), 404
+
+#         mac_ip_vendor_mapping = perform_mac_ip_vendor_mapping(pcap_file_path)
+
+#         # Path to the vendor database CSV file
+#         vendor_DB_path = os.path.join(UPLOAD_FOLDER, 'device_type_DB_Main.csv')
+
+#         classified_devices = perform_device_classification(mac_ip_vendor_mapping, vendor_DB_path)
+
+#         return jsonify({'success': 'Device classification successful', 'classified_devices': classified_devices}), 200
+#     except Exception as e:
+#         return jsonify({'error': f'Error during device classification: {str(e)}'}), 500
+    
 
 @app.route('/generate-network-topology', methods=['GET', 'POST'])
 def generate_network_topology():
@@ -450,108 +568,22 @@ def generate_network_topology():
 
             pos = nx.spring_layout(G)
 
-            node_trace = go.Scatter(
-                x=[],
-                y=[],
-                text=list(ip_set),
-                mode='markers',
-                hoverinfo='text',
-                marker=dict(
-                    size=15,
-                    color='skyblue'
-                )
-            )
+            # Creating Node and Edge Data for Plotly
+            nodes_data = [{'id': node, 'x': pos[node][0], 'y': pos[node][1]} for node in G.nodes()]
+            links_data = [{'source': edge[0], 'target': edge[1]} for edge in G.edges()]
 
-            edge_trace = go.Scatter(
-                x=[],
-                y=[],
-                line=dict(width=1, color='black'),
-                hoverinfo='none',
-                mode='lines'
-            )
+            response_data = {
+                'nodes': nodes_data,
+                'links': links_data,
+                'message': 'Network topology generated successfully'
+            }
 
-            for edge in G.edges():
-                x0, y0 = pos[edge[0]]
-                x1, y1 = pos[edge[1]]
-                edge_trace['x'] += (x0,)
-                edge_trace['x'] += (x1,)
-                edge_trace['x'] += (None,)  # Add None for line segment
-
-                edge_trace['y'] += (y0,)
-                edge_trace['y'] += (y1,)
-                edge_trace['y'] += (None,)  # Add None for line segment
-
-            for node in G.nodes():
-                x, y = pos[node]
-                node_trace['x'] += (x,)
-                node_trace['y'] += (y,)
-
-            fig = go.Figure(data=[edge_trace, node_trace],
-                            layout=go.Layout(
-                                title='Layer 1 Network Topology',
-                                showlegend=False,
-                                margin=dict(b=20),
-                                xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-                                yaxis=dict(showgrid=False, zeroline=False, showticklabels=False)
-                            ))
-
-            return jsonify({'success': 'Network topology generated successfully', 'figure': fig.to_json()}), 200
+            return jsonify(response_data), 200
         except Exception as e:
             return jsonify({'error': f'Error generating network topology: {str(e)}'}), 500
-        
 
-
-def perform_mac_ip_vendor_mapping(pcap_file_path):
-    manuf_db = manuf.MacParser()
-    mac_ip_vendor_mapping = {}
-    vendor = {}
-    ip_address_mapping = {}
-
-    packets = rdpcap(pcap_file_path)
-    for packet in packets:
-        if Ether in packet:
-            src_mac = packet[Ether].src
-            dst_mac = packet[Ether].dst
-            if IP in packet:
-                src_ip = packet[IP].src
-                dst_ip = packet[IP].dst
-                ip_address_mapping.setdefault(src_mac, set()).add(src_ip)
-                ip_address_mapping.setdefault(dst_mac, set()).add(dst_ip)
-                vendor[src_mac] = manuf_db.get_manuf(src_mac)
-                vendor[dst_mac] = manuf_db.get_manuf(dst_mac)
-
-    for mac in ip_address_mapping:
-        mac_ip_vendor_mapping[mac] = {"IP": list(ip_address_mapping[mac]), "Vendors": vendor.get(mac, "Unknown")}
-
-    return mac_ip_vendor_mapping
-
-def perform_device_classification(mac_ip_vendor_mapping, vendor_DB_path):
-    # Load vendor DB from CSV file
-    vendor_DB = pd.read_csv(vendor_DB_path)
-
-    # Debugging: Print keys of mac_ip_vendor_mapping
-    # print("Keys in mac_ip_vendor_mapping:", mac_ip_vendor_mapping.keys())
-
-    for device in mac_ip_vendor_mapping:
-        # Debugging: Print mac_ip_vendor_mapping structure
-        # print("Device:", device)
-        # print("mac_ip_vendor_mapping[device]:", mac_ip_vendor_mapping[device])
-
-        # Access vendor information
-        vendor_info = mac_ip_vendor_mapping[device].get('Vendors')  # Ensure consistent capitalization
-        if vendor_info:
-            vendor = vendor_info[0]  # Assuming it's a list, adjust if necessary
-            if vendor in vendor_DB['Vendor'].values:
-                category = vendor_DB[vendor_DB['Vendor'] == vendor]['Category'].iloc[0]
-                mac_ip_vendor_mapping[device]['category'] = category
-            else:
-                mac_ip_vendor_mapping[device]['category'] = 'Unknown'
-        else:
-            mac_ip_vendor_mapping[device]['category'] = 'Unknown'
-
-    return mac_ip_vendor_mapping
-
-
+    
+  
 @app.route('/device-classification', methods=['POST'])
 def device_classification():
     try:
@@ -563,13 +595,24 @@ def device_classification():
         mac_ip_vendor_mapping = perform_mac_ip_vendor_mapping(pcap_file_path)
 
         # Path to the vendor database CSV file
-        vendor_DB_path = os.path.join(UPLOAD_FOLDER, 'device_type_DB_Main.csv')
+        vendor_DB_path = os.path.join(UPLOAD_FOLDER, 'mac vendor.csv')
 
         classified_devices = perform_device_classification(mac_ip_vendor_mapping, vendor_DB_path)
 
         return jsonify({'success': 'Device classification successful', 'classified_devices': classified_devices}), 200
     except Exception as e:
         return jsonify({'error': f'Error during device classification: {str(e)}'}), 500
+  
+    
+
+@app.route('/ip_address', methods=['GET'])
+def get_ip_addresses():
+    pcap_file_path = os.path.join(UPLOAD_FOLDER, 'uploaded.pcap')
+    ip_addresses = perform_mac_ip_mapping(pcap_file_path)
+    return jsonify(ip_addresses)
+    
+    
+    
 
 if __name__ == "__main__":
     app.run(debug=True)

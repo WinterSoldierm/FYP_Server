@@ -1,0 +1,70 @@
+MAC address,Vendor Name,Shortened Name (used by wireshark),Category
+28:63:36:89:59:82,Siemens AG,Siemens,OT
+00:07:7c:1a:61:83,Westermo Network Technologies AB,WestermoNetw,NW
+00:0a:dc:64:85:c2,RuggedCom Inc.,RuggedCom,"OT,NW"
+00:1c:06:27:64:11,"Siemens Numerical Control Ltd., Nanjing",SiemensNumer,OT
+28:cf:e9:18:b5:ed,"Apple, Inc.",Apple,IT
+70:71:bc:3a:0d:e8,Pegatron Corporation,Pegatron,"IT,NW"
+a2:f4:01:00:01:d6,--,--,Other
+00:90:e8:27:8c:37,"Moxa Technologies Corp., Ltd.",MoxaTechnolo,NW
+54:ee:75:3f:4a:db,"Wistron InfoComm(Kunshan)Co.,Ltd",WistronInfoC,NW
+00:0e:38:95:1d:8b,"Cisco Systems, Inc",Cisco,NW
+20:62:74:23:0a:60 ,Microsoft Corporation,Microsoft,IT
+00:1c:06:01:d4:23,"Siemens Numerical Control Ltd., Nanjing",SiemensNumer,OT
+00:1c:06:27:64:11,"Siemens Numerical Control Ltd., Nanjing",SiemensNumer,OT
+60:03:08:a3:90:90,"Apple, Inc.",Apple,IT
+04:18:d6:83:db:16,Ubiquiti Inc,Ubiquiti,"IT,NW"
+00:0a:dc:64:85:c3,RuggedCom Inc.,RuggedCom,"OT,NW"
+a0:99:9b:1c:d8:65,"Apple, Inc.",Apple,IT
+30:a8:db:bc:ed:46,Sony Corporation,Sony,IT
+9c:f3:87:d9:d7:e0,"Apple, Inc.",Apple,IT
+78:31:c1:ca:8d:82,"Apple, Inc.",Apple,IT
+90:b9:31:05:b8:80,"Apple, Inc.",Apple,IT
+b8:ae:ed:75:70:41 ,"Elitegroup Computer Systems Co.,Ltd.",ElitegroupCo,IT
+6c:70:9f:d2:2a:4e,"Apple, Inc.",Apple,IT
+00:80:63:b5:b6:bb,Hirschmann Automation and Control GmbH,HirschmannAu,NW
+00:40:9d:28:ee:0d,DigiBoard,DigiBoard,IT
+00:d0:c9:bd:2e:57,"Advantech Co., Ltd.",Advantech,"IT,OT,NW"
+20:c9:d0:78:96:ef,"Apple, Inc.",Apple,IT
+dc:53:7c:8f:37:c4,"Compal Broadband Networks, Inc.",CompalBroadb,NW
+00:0a:dc:64:85:c2,RuggedCom Inc,RuggedCom,"OT,NW"
+00:90:e8:26:40:23,"Moxa Technologies Corp., Ltd.",MoxaTechnolo,NW
+00:71:00:ff:11:a2,--,--,Other
+00:e0:62:00:17:0a,Host Engineering,HostEngineer,OT
+00:05:e4:01:24:d3,Red Lion Controls Inc.,RedLionContr,"OT,NW"
+00:1e:ec:26:d2:ac ,"Compal Information (Kunshan) Co., Ltd.",CompalInform,"IT,NW"
+00:a0:45:6f:4b:83,PHOENIX CONTACT Electronics GmbH,PHOENIXCONTA,"IT,OT"
+70:71:bc:3a:0d:e8,Pegatron Corporation,Pegatron,"IT,NW"
+f0:25:b7:76:4b:12,Samsung Electro-Mechanics(Thailand),SamsungElect,OT
+28:63:36:89:59:82,Siemens AG,Siemens,OT
+00:11:22:7b:c5:50,CIMSYS Inc,CIMSYS,OT
+00:d0:c9:a5:c9:2d,"Advantech Co., Ltd.",Advantech,"IT,OT,NW"
+00:0c:be:04:f3:0a,Innominate Security Technologies AG,InnominateSe,NW
+34:12:98:dc:df:fb,"Apple, Inc.",Apple,IT
+00:22:07:31:51:d4,Inteno Broadband Technology AB,IntenoBroadb,NW
+a4:4e:31:e9:19:08,Intel Corporate,Intel,IT
+00:e0:62:40:57:66,Host Engineering,HostEngineer,OT
+20:c9:d0:44:d1:e7,"Apple, Inc.",Apple,IT
+00:90:e8:10:af:c8,"Moxa Technologies Corp., Ltd.",MoxaTechnolo,NW
+00:50:56:c0:00:01,"VMware, Inc.",VMware,IT
+1c:e8:5d:69:c5:c2,"Cisco Systems, Inc",Cisco,NW
+a4:5e:60:d9:2e:1b,"Apple, Inc.",Apple,IT
+18:34:51:d5:4f:9a,"Apple, Inc.",Apple,IT
+ec:1f:72:41:95:72,Samsung Electro-Mechanics(Thailand),SamsungElect,OT
+00:07:7c:1a:61:83,Westermo Network Technologies AB,WestermoNetw,NW
+00:90:e8:26:7b:17,"Moxa Technologies Corp., Ltd.",MoxaTechnolo,NW
+00:0c:be:04:f3:0b,Innominate Security Technologies AG,InnominateSe,NW
+6c:40:08:95:a0:66,"Apple, Inc.",Apple,IT
+c0:ee:fb:42:90:27,OnePlus Tech (Shenzhen) Ltd,OnePlusTech,NW
+00:0e:38:95:1d:8b,"Cisco Systems, Inc",Cisco,NW
+f4:09:d8:69:f2:5d,Samsung Electro-Mechanics(Thailand),SamsungElect,OT
+00:07:7c:1a:61:85,Westermo Network Technologies AB,WestermoNetw,NW
+00:90:e8:27:8c:37,"Moxa Technologies Corp., Ltd.",MoxaTechnolo,NW
+9c:f3:87:c1:4c:d6,"Apple, Inc.",Apple,IT
+00:40:8c:7f:0b:bc,Axis Communications AB,AxisCommunic,Other
+54:ee:75:3f:4a:db,"Wistron InfoComm(Kunshan)Co.,Ltd.",WistronInfoC,NW
+a2:f4:01:00:01:d6,--,--,Other
+00:0a:dc:5b:27:a0,RuggedCom Inc.,RuggedCom,"OT,NW"
+28:cf:e9:18:b5:ed,"Apple, Inc.",Apple,IT
+ac:cf:23:02:23:6e,"Hi-flying electronics technology Co.,Ltd",Hiflyingelec,"IT,NW"
+38:b1:db:e1:e9:cf,"Hon Hai Precision Ind. Co.,Ltd.",HonHaiPrecis,"IT,NW"
