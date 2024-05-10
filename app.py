@@ -15,7 +15,9 @@ import csv
 from device_clssification import  perform_device_classification,perform_mac_ip_vendor_mapping
 from find_location import perform_mac_ip_mapping
 from os_identificatioin import get_ttl_and_window_size
-
+from flask import Flask, render_template
+import plotly.graph_objs as go
+from activityChart import calculate_sorted_device_appearance_count,find_unique_mac_addresses
 
 app = Flask(__name__)
 CORS(app)
@@ -590,6 +592,22 @@ def os_identification():
 
     # Return the OS information as JSON response
     return jsonify(device_info)    
+
+
+@app.route('/activity_data', methods=['GET'])
+def get_activity_data():
+    # Load pcap_file, you might need to adjust this part to load your pcap_file
+    pcap_file = os.path.join(UPLOAD_FOLDER, 'uploaded.pcap')
+
+    # Calculate sorted device appearance count
+    unique_mac_addresses = find_unique_mac_addresses(pcap_file)
+    sorted_device_appearance_count = calculate_sorted_device_appearance_count(unique_mac_addresses, pcap_file)
+
+    # Format data as JSON
+    activity_data = [{'mac_address': mac, 'count': count} for mac, count in sorted_device_appearance_count.items()]
+
+    return jsonify(activity_data)
+
 
 if __name__ == "__main__":
     app.run(debug=True)
