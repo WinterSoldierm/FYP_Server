@@ -18,6 +18,7 @@ from os_identificatioin import get_ttl_and_window_size
 from flask import Flask, render_template
 import plotly.graph_objs as go
 from activityChart import calculate_sorted_device_appearance_count,find_unique_mac_addresses
+from PortNumber import extract_ports_combined, extract_ports_separate,find_unique_mac_addresses
 
 app = Flask(__name__)
 CORS(app)
@@ -607,6 +608,38 @@ def get_activity_data():
     activity_data = [{'mac_address': mac, 'count': count} for mac, count in sorted_device_appearance_count.items()]
 
     return jsonify(activity_data)
+
+
+@app.route('/find_ports', methods=['POST'])
+def find_ports():
+    pcap_file = os.path.join(UPLOAD_FOLDER, 'uploaded.pcap')
+    try:
+        # Find unique MAC addresses
+        unique_mac_addresses = find_unique_mac_addresses(pcap_file)
+
+        # # Extract port mappings
+        # port_mapping = extract_ports_combined(pcap_file, unique_mac_addresses)
+        
+        # port_mapping = {mac: list(ports) for mac, ports in port_mapping.items()}
+        # # Return the port mappings as JSON response
+        # return jsonify(port_mapping)
+        
+        
+        # Extract port mappings separately
+        src_ports_mapping, dst_ports_mapping = extract_ports_separate(pcap_file, unique_mac_addresses)
+
+        # Convert sets to lists
+        src_ports_mapping = {mac: list(ports) for mac, ports in src_ports_mapping.items()}
+        dst_ports_mapping = {mac: list(ports) for mac, ports in dst_ports_mapping.items()}
+
+        # Return the port mappings as JSON response
+        return jsonify({'src_ports_mapping': src_ports_mapping, 'dst_ports_mapping': dst_ports_mapping})
+
+
+    except Exception as e:
+        # Handle any errors that occur during processing
+        return jsonify({'error': str(e)}), 500
+
 
 
 if __name__ == "__main__":
