@@ -1,10 +1,10 @@
 from flask import Flask, jsonify
 from scapy.all import rdpcap, Ether, IP
 
-def perform_mac_ip_mapping(pcap_file_path):
+def perform_mac_ip_mapping(packets):
     ip_addresses = set()
 
-    packets = rdpcap(pcap_file_path)
+    
     for packet in packets:
         if IP in packet:
             src_ip = packet[IP].src

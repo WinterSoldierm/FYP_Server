@@ -19,10 +19,19 @@ from flask import Flask, render_template
 import plotly.graph_objs as go
 from activityChart import calculate_sorted_device_appearance_count,find_unique_mac_addresses
 from PortNumber import extract_ports_combined, extract_ports_separate,find_unique_mac_addresses
+from macOUILookUp import get_mac_vendor_mapping
+from flask_session import Session
+
 
 app = Flask(__name__)
 CORS(app)
 
+# Configure Flask-Session
+app.config['SESSION_TYPE'] = 'filesystem'  # You can choose the session storage type
+app.config['SECRET_KEY'] = '211070903'  # Replace this with a secret key for session encryption
+
+# Initialize Flask-Session
+Session(app)
 
 @app.route('/')
 def index():
@@ -134,8 +143,6 @@ def mac_oui_lookup(pcap_file_path):
 
     return oui_data
 
-
-
 def update_oui_data(oui_data, mac_address, vendor):
     if mac_address not in oui_data:
         oui_data[mac_address] = vendor
@@ -145,16 +152,6 @@ def process_uploaded_file(file_path):
     mac_lookup_data = mac_oui_lookup(file_path)
     return ip_protocol_count, mac_lookup_data
         
-
-# def process_uploaded_file(file_path):
-#     # Identify industrial protocols
-#     ip_protocol_count = identify_industrial_protocols(file_path)
-
-#     # Perform MAC OUI lookup
-#     mac_lookup_data = mac_oui_lookup(file_path)
-
-#     return ip_protocol_count, mac_lookup_data
-
 
 def update_protocol_Distribution_count(protocol_count, protocol):
     if protocol in protocol_count:
@@ -182,73 +179,10 @@ def generate_protocol_distribution_data(pcap_file_path):
 
     return {'labels': labels, 'values': values}
 
-
-
-
 # Routes 
 @app.route('/')
 def hello():
     return 'Hello from the Python backend!'
-
-# @app.route('/upload', methods=['POST'])
-# def upload_file():
-#     try:
-#         if 'file' not in request.files:
-#             return jsonify({'error': 'No file part'}), 400
-
-#         file = request.files['file']
-
-#         if file.filename == '':
-#             return jsonify({'error': 'No selected file'}), 400
-
-#         if file and allowed_file(file.filename):
-#             file_path = get_file_path('uploaded.pcap')
-#             file.save(file_path)
-
-#             # Identify industrial protocols
-#             ip_protocol_count = identify_industrial_protocols(file_path)
-
-#             # Perform MAC OUI lookup
-#             mac_lookup_data = mac_oui_lookup(file_path)
-
-#             # Return both sets of data along with the success message
-#             return jsonify({'success': 'File uploaded successfully', 'ip_protocol_count': ip_protocol_count, 'mac_lookup_data': mac_lookup_data}), 200
-#         else:
-#             return jsonify({'error': 'Invalid file type'}), 400
-#     except Exception as e:
-#         return jsonify({'error': f'Error during file upload: {str(e)}'}), 500
-
-# @app.route('/upload', methods=['POST'])
-# def upload_file():
-#     try:
-#         if 'file' not in request.files:
-#             return jsonify({'error': 'No file part'}), 400
-
-#         file = request.files['file']
-
-#         if file.filename == '':
-#             return jsonify({'error': 'No selected file'}), 400
-
-#         if file and allowed_file(file.filename):
-#             secure_filename(file.filename)  # Use secure_filename to avoid security issues
-#             file_path = get_file_path('uploaded.pcap')
-
-#             with file.stream as stream:
-#                 # Save the file using streaming
-#                 with open(file_path, 'wb') as f:
-#                     for chunk in stream:
-#                         f.write(chunk)
-
-#             # Use executor to run file processing tasks asynchronously
-#             future = executor.submit(process_uploaded_file, file_path)
-
-#             # Return a response without waiting for the tasks to complete
-#             return jsonify({'success': 'File upload started successfully'}), 200
-#         else:
-#             return jsonify({'error': 'Invalid file type'}), 400
-#     except Exception as e:
-#         return jsonify({'error': f'Error during file upload: {str(e)}'}), 500
-
 
 # Mac and IP lookup multithreading
 @app.route('/upload', methods=['POST'])
@@ -292,11 +226,20 @@ def perform_mac_oui_lookup():
         for packet in pcap_file:
             if packet.haslayer(Ether):
                 add = packet[Ether].src
-                vendor[add] = manuf_db.get_manuf(add)
+                vendor[add] = manuf_db.get_manuf_long(add)
 
         return jsonify({'success': 'MAC OUI lookup successful', 'mac_lookup': vendor}), 200
     except Exception as e:
         return jsonify({'error': f'Error performing MAC OUI lookup: {str(e)}'}), 500
+    
+@app.route('/mac-vendor-lookup', methods=['POST'])
+def mac_vendor_lookup():
+    pcap_file =  os.path.join(UPLOAD_FOLDER, 'uploaded.pcap')
+    # Process the pcap file and extract MAC vendor mapping
+    # Assuming pcap_file is in a suitable format, such as a list of packets
+    mac_ip_vendor_mapping = get_mac_vendor_mapping(pcap_file)
+
+    return jsonify(mac_ip_vendor_mapping)   
     
 # Add this route to your backend code
 @app.route('/ip-protocol-lookup', methods=['POST'])
@@ -322,35 +265,6 @@ def generate_protocol_distribution():
     except Exception as e:
         return jsonify({'error': f'Error generating Protocol Distribution: {str(e)}'}), 500
 
-# Define a route to handle the active devices request
-# @app.route('/active_devices', methods=['POST'])
-# def active_devices():
-#     try:
-#         # Get the file path of the uploaded pcap file
-#         file_path = get_file_path('uploaded.pcap')
-        
-#         # Read the pcap file
-#         packets = rdpcap(file_path)
-
-#         # Initialize a set to store active MAC addresses
-#         active_macs = set()
-
-#         # Iterate over each packet in the pcap file
-#         for packet in packets:
-#             # Check if the packet contains Ethernet header
-#             if Ether in packet:
-#                 # Extract source and destination MAC addresses
-#                 src_mac = packet[Ether].src
-#                 dst_mac = packet[Ether].dst
-#                 # Add both source and destination MAC addresses to the set of active MAC addresses
-#                 active_macs.add(src_mac)
-#                 active_macs.add(dst_mac)
-
-#         # Convert the set of active MAC addresses to a list and return as JSON response
-#         return jsonify({'active_devices': list(active_macs)}), 200
-#     except Exception as e:
-#         # Return error message if any exception occurs
-#         return jsonify({'error': f'Error retrieving active devices: {str(e)}'}), 500
 
 @app.route('/active_devices', methods=['POST'])
 def active_devices():
@@ -393,80 +307,6 @@ def active_devices():
     except Exception as e:
         # Return error message if any exception occurs
         return jsonify({'error': f'Error retrieving active devices: {str(e)}'}), 500
-
-
-        
-
-
-# def perform_mac_ip_vendor_mapping(pcap_file_path):
-#     manuf_db = manuf.MacParser()
-#     mac_ip_vendor_mapping = {}
-#     vendor = {}
-#     ip_address_mapping = {}
-
-#     packets = rdpcap(pcap_file_path)
-#     for packet in packets:
-#         if Ether in packet:
-#             src_mac = packet[Ether].src
-#             dst_mac = packet[Ether].dst
-#             if IP in packet:
-#                 src_ip = packet[IP].src
-#                 dst_ip = packet[IP].dst
-#                 ip_address_mapping.setdefault(src_mac, set()).add(src_ip)
-#                 ip_address_mapping.setdefault(dst_mac, set()).add(dst_ip)
-#                 vendor[src_mac] = manuf_db.get_manuf(src_mac)
-#                 vendor[dst_mac] = manuf_db.get_manuf(dst_mac)
-
-#     for mac in ip_address_mapping:
-#         mac_ip_vendor_mapping[mac] = {"IP": list(ip_address_mapping[mac]), "Vendors": vendor.get(mac, "Unknown")}
-
-#     return mac_ip_vendor_mapping
-
-# def perform_device_classification(mac_ip_vendor_mapping, vendor_DB_path):
-#     # Load vendor DB from CSV file
-#     vendor_DB = pd.read_csv(vendor_DB_path)
-
-#     # Debugging: Print keys of mac_ip_vendor_mapping
-#     # print("Keys in mac_ip_vendor_mapping:", mac_ip_vendor_mapping.keys())
-
-#     for device in mac_ip_vendor_mapping:
-#         # Debugging: Print mac_ip_vendor_mapping structure
-#         # print("Device:", device)
-#         # print("mac_ip_vendor_mapping[device]:", mac_ip_vendor_mapping[device])
-
-#         # Access vendor information
-#         vendor_info = mac_ip_vendor_mapping[device].get('Vendors')  # Ensure consistent capitalization
-#         if vendor_info:
-#             vendor = vendor_info[0]  # Assuming it's a list, adjust if necessary
-#             if vendor in vendor_DB['Vendor'].values:
-#                 category = vendor_DB[vendor_DB['Vendor'] == vendor]['Category'].iloc[0]
-#                 mac_ip_vendor_mapping[device]['category'] = category
-#             else:
-#                 mac_ip_vendor_mapping[device]['category'] = 'Unknown'
-#         else:
-#             mac_ip_vendor_mapping[device]['category'] = 'Unknown'
-
-#     return mac_ip_vendor_mapping
-
-# @app.route('/device-classification', methods=['POST'])
-# def device_classification():
-#     try:
-#         pcap_file_path = os.path.join(UPLOAD_FOLDER, 'uploaded.pcap')
-
-#         if not os.path.isfile(pcap_file_path):
-#             return jsonify({'error': 'No pcap file uploaded'}), 404
-
-#         mac_ip_vendor_mapping = perform_mac_ip_vendor_mapping(pcap_file_path)
-
-#         # Path to the vendor database CSV file
-#         vendor_DB_path = os.path.join(UPLOAD_FOLDER, 'device_type_DB_Main.csv')
-
-#         classified_devices = perform_device_classification(mac_ip_vendor_mapping, vendor_DB_path)
-
-#         return jsonify({'success': 'Device classification successful', 'classified_devices': classified_devices}), 200
-#     except Exception as e:
-#         return jsonify({'error': f'Error during device classification: {str(e)}'}), 500
-    
 
 @app.route('/generate-network-topology', methods=['GET', 'POST'])
 def generate_network_topology():
@@ -515,8 +355,6 @@ def generate_network_topology():
             return jsonify(response_data), 200
         except Exception as e:
             return jsonify({'error': f'Error generating network topology: {str(e)}'}), 500
-
-    
   
 @app.route('/device-classification', methods=['POST'])
 def device_classification():
@@ -536,8 +374,6 @@ def device_classification():
         return jsonify({'success': 'Device classification successful', 'classified_devices': classified_devices}), 200
     except Exception as e:
         return jsonify({'error': f'Error during device classification: {str(e)}'}), 500
-  
-    
 
 @app.route('/ip_address', methods=['GET'])
 def get_ip_addresses():
@@ -545,55 +381,56 @@ def get_ip_addresses():
     ip_addresses = perform_mac_ip_mapping(pcap_file_path)
     return jsonify(ip_addresses)
     
-    
 @app.route('/os_identification', methods=['POST'])
 def os_identification():
-    # Assuming the pcap file is uploaded through a form with the name 'pcap_file'
     pcap_file = os.path.join(UPLOAD_FOLDER, 'uploaded.pcap')
 
+    # Your OS mapping dictionary
+    os_mapping = {
+    (64, 8760): "Solaris 7",
+    (64, 16384): "AIX 4.3",
+    (128, 8192): ["Windows Vista", "Windows 7", "Windows Server 2008", "Windows Server 2012", "HP-UX 11.11"],
+    (64, 8192): ["Windows 95", "Linux (Kernel 3.2)", "BlueArc Titan 2100 NAS device", "Cisco IOS (12.4)", "NetApp Filer (Data ONTAP 7.2)", "Juniper ScreenOS", "IBM z/OS", "Cisco ASA (Adaptive Security Appliance)"],
+    (128, 16384): ["Windows Server 2000", "Microsoft Windows XP SP3", "Windows 7", "Windows Server 2012", "Windows Vista"],
+    (32, 8192): "Windows 95",
+    (128, 65535): ["Windows XP","Ubuntu Linux"],
+    (25, 4128): "iOS 12.4 (Cisco Routers)",
+    (255, 8760): "Solaris 7",
+    (64, 5840): "Linux (Kernel 2.4 and 2.6)",
+    (64, 5720): ["Google Linux","Google's customized Linux"],
+    (64, 65535): "FreeBSD",
+    (64, 501): "Linux Ubuntu 10.04"
+    }
+    
     # Process the pcap file
     packet_list = rdpcap(pcap_file)
     device_info = get_ttl_and_window_size(packet_list)
 
-    # OS Identification
+    # OS Identification using the new mapping logic
     for mac_address in device_info:
+        # Initialize list for OS for each MAC address
+        device_info[mac_address]['OS'] = []
+
+        # Check if 'Window_Size' and 'TTL' subkeys exist
         if 'Window_Size' in device_info[mac_address] and 'TTL' in device_info[mac_address]:
-            if device_info[mac_address]['TTL'] == 64 and device_info[mac_address]['Window_Size'] == 8760:
-                device_info[mac_address]['OS'] = "Solaris 7"
-            elif device_info[mac_address]['TTL'] == 64 and device_info[mac_address]['Window_Size'] == 16384:
-                device_info[mac_address]['OS'] = "AIX 4.3"
-            elif device_info[mac_address]['TTL'] == 128 and device_info[mac_address]['Window_Size'] == 16384:
-                device_info[mac_address]['OS'] = "Windows 2000"
-            elif device_info[mac_address]['TTL'] == 32 and device_info[mac_address]['Window_Size'] == 8192:
-                device_info[mac_address]['OS'] = "Windows 95"
-            elif device_info[mac_address]['TTL'] == 128 and device_info[mac_address]['Window_Size'] == 65535:
-                device_info[mac_address]['OS'] = "Windows XP"
-            elif device_info[mac_address]['TTL'] == 25 and device_info[mac_address]['Window_Size'] == 4128:
-                device_info[mac_address]['OS'] = "iOS 12.4 (Cisco Routers)"
-            elif device_info[mac_address]['TTL'] == 255 and device_info[mac_address]['Window_Size'] == 8760:
-                device_info[mac_address]['OS'] = "Solaris 7"
-            elif device_info[mac_address]['TTL'] == 64 and device_info[mac_address]['Window_Size'] == 5840:
-                device_info[mac_address]['OS'] = "Linux (Kernel 2.4 and 2.6)"
-            elif device_info[mac_address]['TTL'] == 64 and device_info[mac_address]['Window_Size'] == 5720:
-                device_info[mac_address]['OS'] = "Google Linux"
-            elif device_info[mac_address]['TTL'] == 64 and device_info[mac_address]['Window_Size'] == 65535:
-                device_info[mac_address]['OS'] = "FreeBSD"
-            elif device_info[mac_address]['TTL'] == 128 and device_info[mac_address]['Window_Size'] == 8192:
-                device_info[mac_address]['OS'] = "HP-UX 11.11"
-            elif device_info[mac_address]['TTL'] == 128 and device_info[mac_address]['Window_Size'] == 65535:
-                device_info[mac_address]['OS'] = "Ubuntu Linux"
-            elif device_info[mac_address]['TTL'] == 64 and device_info[mac_address]['Window_Size'] == 5270:
-                device_info[mac_address]['OS'] = "Google's customized Linux"
-            elif device_info[mac_address]['TTL'] == 64 and device_info[mac_address]['Window_Size'] == 501:
-                device_info[mac_address]['OS'] = "Linux Ubuntu 10.04"
+            ttl = device_info[mac_address]['TTL']
+            window_size = device_info[mac_address]['Window_Size']
+
+            # Check if the TTL and Window_Size combination exists in the mapping
+            if (ttl, window_size) in os_mapping:
+                os_names = os_mapping[(ttl, window_size)]
+                if isinstance(os_names, list):
+                    device_info[mac_address]['OS'].extend(os_names)
+                else:
+                    device_info[mac_address]['OS'].append(os_names)
             else:
-                device_info[mac_address]['OS'] = "Unknown"
+                device_info[mac_address]['OS'].append("Unknown")
         else:
-            device_info[mac_address]['OS'] = "Unknown"
+            # If either 'Window_Size' or 'TTL' subkey is missing, mark the OS as "Unknown"
+            device_info[mac_address]['OS'].append("Unknown")
 
     # Return the OS information as JSON response
-    return jsonify(device_info)    
-
+    return jsonify(device_info)
 
 @app.route('/activity_data', methods=['GET'])
 def get_activity_data():
