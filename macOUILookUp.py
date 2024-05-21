@@ -8,7 +8,7 @@ def find_unique_mac_addresses(pcap_file):
     mac_add_list_src = set(packet[0].src for packet in packets)
     mac_add_list_dst = set(packet[0].dst for packet in packets)
     unique_mac_addresses = set(mac_add_list_src.union(mac_add_list_dst))
-    unique_mac_addresses.discard('ff:ff:ff:ff:ff:ff')
+    # unique_mac_addresses.discard('ff:ff:ff:ff:ff:ff')``
     return unique_mac_addresses
 
 def get_mac_vendor_mapping(pcap_file):
