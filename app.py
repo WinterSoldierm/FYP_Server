@@ -21,6 +21,7 @@ from activityChart import calculate_sorted_device_appearance_count,find_unique_m
 from PortNumber import extract_ports_combined, extract_ports_separate,find_unique_mac_addresses
 from macOUILookUp import get_mac_vendor_mapping
 from flask_session import Session
+import pyshark 
 
 
 app = Flask(__name__)
@@ -476,6 +477,60 @@ def find_ports():
     except Exception as e:
         # Handle any errors that occur during processing
         return jsonify({'error': str(e)}), 500
+
+
+
+
+
+def Find_unique_mac_addresses(pcap_file):
+    packets = rdpcap(pcap_file)
+    mac_add_list_src = set(packet[0].src for packet in packets)
+    mac_add_list_dst = set(packet[0].dst for packet in packets)
+    unique_mac_addresses = set(mac_add_list_src.union(mac_add_list_dst))
+    unique_mac_addresses.discard('ff:ff:ff:ff:ff:ff')  # Optional: Remove broadcast address
+    return list(unique_mac_addresses)  # Convert the set to a list  
+
+
+# Function to process the pcap file and extract protocols by MAC address
+def process_pcap(file_path):
+    capture = pyshark.FileCapture(file_path)
+
+    protocols_by_mac = {}
+    unique_mac_addresses = Find_unique_mac_addresses(capture)
+
+    # Initialize the dictionary with empty sets for each MAC address
+    for mac in unique_mac_addresses:
+        protocols_by_mac[mac] = set()
+
+    # Iterate through packets
+    for packet in capture:
+        if 'eth' in packet:
+            # Extract MAC address
+            mac_address = packet.eth.src
+            # Check if the MAC address is in our list
+            if mac_address in protocols_by_mac:
+                # Iterate over packet layers and collect protocol names
+                for layer in packet.layers:
+                    protocols_by_mac[mac_address].add(layer.layer_name)
+
+    # Convert sets to lists for JSON serialization
+    protocols_by_mac = {mac: list(protocols) for mac, protocols in protocols_by_mac.items()}
+    return protocols_by_mac
+
+@app.route('/mac-protocol-lookup', methods=['POST'])
+def mac_protocol_lookup():
+    print('Route hit')
+    try:
+        file_path = os.path.join(UPLOAD_FOLDER, 'uploaded.pcap')
+
+
+        # Process the pcap file
+        protocols_by_mac = process_pcap(file_path)
+
+        return jsonify({'success': 'MAC and Protocol lookup successful', 'protocols_by_mac': protocols_by_mac}), 200
+    except Exception as e:
+        return jsonify({'error': f'Error performing MAC and Protocol lookup: {str(e)}'}), 500
+
 
 
 
