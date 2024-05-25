@@ -389,19 +389,29 @@ def os_identification():
 
     # Your OS mapping dictionary
     os_mapping = {
-    (64, 8760): "Solaris 7",
-    (64, 16384): "AIX 4.3",
-    (128, 8192): ["Windows Vista", "Windows 7", "Windows Server 2008", "Windows Server 2012", "HP-UX 11.11"],
-    (64, 8192): ["Windows 95", "Linux (Kernel 3.2)", "BlueArc Titan 2100 NAS device", "Cisco IOS (12.4)", "NetApp Filer (Data ONTAP 7.2)", "Juniper ScreenOS", "IBM z/OS", "Cisco ASA (Adaptive Security Appliance)"],
-    (128, 16384): ["Windows Server 2000", "Microsoft Windows XP SP3", "Windows 7", "Windows Server 2012", "Windows Vista"],
-    (32, 8192): "Windows 95",
-    (128, 65535): ["Windows XP","Ubuntu Linux"],
-    (25, 4128): "iOS 12.4 (Cisco Routers)",
-    (255, 8760): "Solaris 7",
-    (64, 5840): "Linux (Kernel 2.4 and 2.6)",
-    (64, 5720): ["Google Linux","Google's customized Linux"],
-    (64, 65535): "FreeBSD",
-    (64, 501): "Linux Ubuntu 10.04"
+        (32, 8192): "Windows 95",
+        (25, 4128): "iOS 12.4 (Cisco Routers)",
+        (64, 8760): "Solaris 7",
+        (64, 16384): "AIX 4.3",
+        (64, 8192): ["Windows 95", "Linux (Kernel 3.2)", "BlueArc Titan 2100 NAS device", "Cisco IOS (12.4)", "NetApp Filer (Data ONTAP 7.2)", "Juniper ScreenOS", "IBM z/OS", "Cisco ASA (Adaptive Security Appliance)"],
+        (64, 5840): ["Linux (Kernel 2.4 and 2.6)","Debian Linux", "Red Hat Enterprise Linux"],
+        (64, 5720): ["Google Linux", "Google's customized Linux"],
+        (64, 65535): "FreeBSD",
+        (64, 501): "Linux Ubuntu 10.04",
+        (64, 65520): "OpenBSD",
+        (64, 12800): "Linux (Kernel 4.4)",
+        (64, 16384): "AIX 5.3",
+        (64, 14600): "Linux (Kernel 3.10)",
+        (128, 8192): ["Windows Vista", "Windows 7", "Windows Server 2008", "HP-UX 11.11","Windows 8", "Windows Server 2012 R2","Windows 8.1", "Windows Server 2012 R2","Windows 10", "Windows Server 2016"],
+        (128, 16384): ["Windows Server 2000", "Microsoft Windows XP SP3", "Windows 7", "Windows Server 2012", "Windows Vista","CentOS 7"],
+        (128, 65535): ["Windows XP", "Ubuntu Linux"],
+        (128, 16384): ["Windows Server 2016", "Windows 10"],
+        (128, 29200): "MacOS X 10.10",
+        (128, 32120): "MacOS X 10.15",
+        (255, 65535): "FreeBSD 10",
+        (255, 8760): "Solaris 7",
+        (255, 4128): "Cisco iOS 12.4",
+        (255, 64240): "Solaris 10",
     }
     
     # Process the pcap file
@@ -480,6 +490,44 @@ def find_ports():
         return jsonify({'error': str(e)}), 500
 
 
+# def find_unique_mac_addresses(pcap_file):
+#     packets = rdpcap(pcap_file)
+#     mac_add_list_src = set(packet[0].src for packet in packets)
+#     mac_add_list_dst = set(packet[0].dst for packet in packets)
+#     unique_mac_addresses = set(mac_add_list_src.union(mac_add_list_dst))
+#     unique_mac_addresses.discard('ff:ff:ff:ff:ff:ff')  # Optional: Remove broadcast address
+#     return list(unique_mac_addresses)  # Convert the set to a list
+
+# @app.route('/process_pcap', methods=['GET'])
+# def process_pcap():
+#     pcap_file_path = os.path.join(UPLOAD_FOLDER, 'uploaded.pcap')
+
+#     if not os.path.exists(pcap_file_path):
+#         return jsonify({'error': 'PCAP file not found'}), 404
+
+#     # Set up a new event loop for PyShark
+#     loop = asyncio.new_event_loop()
+#     asyncio.set_event_loop(loop)
+
+#     capture = pyshark.FileCapture(pcap_file_path)
+#     unique_mac_addresses = find_unique_mac_addresses(pcap_file_path)
+    
+#     protocols_by_mac = {mac: set() for mac in unique_mac_addresses}
+    
+#     for packet in capture:
+#         if hasattr(packet, 'eth'):
+#             mac_address = packet.eth.src
+#             if mac_address in protocols_by_mac:
+#                 for layer in packet.layers:
+#                     protocols_by_mac[mac_address].add(layer.layer_name)
+
+#     capture.close()
+
+#     protocols_by_mac = {mac: list(protocols) for mac, protocols in protocols_by_mac.items()}
+    
+#     return jsonify(protocols_by_mac)
+
+
 def find_unique_mac_addresses(pcap_file):
     packets = rdpcap(pcap_file)
     mac_add_list_src = set(packet[0].src for packet in packets)
@@ -504,18 +552,34 @@ def process_pcap():
     
     protocols_by_mac = {mac: set() for mac in unique_mac_addresses}
     
+    # for packet in capture:
+    #     if hasattr(packet, 'eth'):
+    #         mac_address = packet.eth.src
+    #         if mac_address in protocols_by_mac:
+    #             for layer in packet.layers:
+    #                 protocols_by_mac[mac_address].add(layer.layer_name)
+    
     for packet in capture:
-        if hasattr(packet, 'eth'):
-            mac_address = packet.eth.src
-            if mac_address in protocols_by_mac:
-                for layer in packet.layers:
-                    protocols_by_mac[mac_address].add(layer.layer_name)
+            # Extract MAC address
+            if hasattr(packet, 'eth'):
+                mac_address = packet.eth.src
+
+                # If MAC address is in the unique list, collect protocols
+                if mac_address in protocols_by_mac:
+                    if protocols_by_mac[mac_address] == "Unknown":
+                        protocols_by_mac[mac_address] = set()
+                    # Iterate over packet layers and collect protocol names
+                    for layer in packet.layers:
+                        protocols_by_mac[mac_address].add(layer.layer_name)
+
 
     capture.close()
 
     protocols_by_mac = {mac: list(protocols) for mac, protocols in protocols_by_mac.items()}
     
     return jsonify(protocols_by_mac)
+
+
 
 
 
