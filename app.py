@@ -25,6 +25,7 @@ import pyshark
 import asyncio
 import requests
 from bs4 import BeautifulSoup
+import subprocess
 
 app = Flask(__name__)
 CORS(app)
@@ -656,6 +657,55 @@ def find_ports():
 
 
 
+# Protocol Identification
+protocols_for_device_classification = {} # Global Protocol Dictionary
+
+
+
+
+
+@app.route('/protocols-by-mac', methods=['GET'])
+def get_protocols_by_mac():
+    global protocols_for_device_classification
+    pcap_file = os.path.join(UPLOAD_FOLDER, 'uploaded.pcap')
+    unique_mac_addresses = find_unique_mac_addresses(pcap_file)
+    protocols_by_mac = {}
+    protocols_by_mac = {mac: "Unknown" for mac in unique_mac_addresses}
+    
+    tshark_path = 'C:\\Program Files\\Wireshark\\tshark.exe' 
+    # Run the tshark command and capture the output
+    tshark_command = [
+        tshark_path,
+        '-r', pcap_file,
+        '-T', 'fields',
+        '-e', 'eth.src',
+        '-e', 'frame.protocols'
+    ]
+    result = subprocess.run(tshark_command, capture_output=True, text=True)
+
+    # Process the output
+    for line in result.stdout.splitlines():
+        try:
+            mac_address, protocols = line.split('\t')
+            if mac_address in protocols_by_mac:
+                protocol_list = protocols.split(':')
+                if protocols_by_mac[mac_address] == "Unknown":
+                    protocols_by_mac[mac_address] = set()
+                for protocol in protocol_list:
+                    protocols_by_mac[mac_address].add(protocol)
+        except ValueError:
+            # Skip lines that don't have the expected number of fields
+            continue
+
+    # Convert sets to lists for JSON serialization
+    protocols_by_mac = {mac: list(protocols) if isinstance(protocols, set) else protocols for mac, protocols in protocols_by_mac.items()}
+    protocols_for_device_classification = protocols_by_mac
+    return jsonify(protocols_by_mac)
+
+
+
+
+
 ot_protocols_keywords = [
     'Modbus', 'DNP3', 'OPC UA', 'ProfiNet', 'EtherNet/IP', 'BACnet', 'CAN', 'IEC 60870-5-104',
     'S7comm', 'OPC DA', 'EtherCAT', 'NFS', 'CIP', 'CIPCM', 'HART', 'Profinet-IRT', 'FOUNDATION Fieldbus',
@@ -675,13 +725,13 @@ ot_protocols_keywords = [
 
 ot_protocols_keywords_lower = [protocol.lower() for protocol in ot_protocols_keywords]
 
-def find_unique_mac_addresses(pcap_file):
-    packets = rdpcap(pcap_file)
-    mac_add_list_src = set(packet[Ether].src for packet in packets if Ether in packet)
-    mac_add_list_dst = set(packet[Ether].dst for packet in packets if Ether in packet)
-    unique_mac_addresses = set(mac_add_list_src.union(mac_add_list_dst))
-    unique_mac_addresses.discard('ff:ff:ff:ff:ff:ff')  # Optional: Remove broadcast address
-    return list(unique_mac_addresses)  # Convert the set to a list
+# def find_unique_mac_addresses(pcap_file):
+#     packets = rdpcap(pcap_file)
+#     mac_add_list_src = set(packet[Ether].src for packet in packets if Ether in packet)
+#     mac_add_list_dst = set(packet[Ether].dst for packet in packets if Ether in packet)
+#     unique_mac_addresses = set(mac_add_list_src.union(mac_add_list_dst))
+#     # unique_mac_addresses.discard('ff:ff:ff:ff:ff:ff')  # Optional: Remove broadcast address
+#     return list(unique_mac_addresses)  # Convert the set to a list
 
 def perform_mac_ip_vendor_mapping(pcap_file_path):
     manuf_db = manuf.MacParser()
@@ -724,41 +774,7 @@ def classify_devices_by_protocol(protocols_by_mac):
 
     return it_ot_classification
 
-protocols_for_device_classification = {}
 
-
-@app.route('/process_pcap', methods=['GET'])
-def process_pcap():
-    global protocols_for_device_classification
-
-    pcap_file_path = os.path.join(UPLOAD_FOLDER, 'uploaded.pcap')
-
-    if not os.path.exists(pcap_file_path):
-        return jsonify({'error': 'PCAP file not found'}), 404
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    capture = pyshark.FileCapture(pcap_file_path)
-    unique_mac_addresses = find_unique_mac_addresses(pcap_file_path)
-    
-    protocols_by_mac = {mac: set() for mac in unique_mac_addresses}
-    
-    for packet in capture:
-        if hasattr(packet, 'eth'):
-            mac_address = packet.eth.src
-            if mac_address in protocols_by_mac:
-                if protocols_by_mac[mac_address] == "Unknown":
-                    protocols_by_mac[mac_address] = set()
-                for layer in packet.layers:
-                    protocols_by_mac[mac_address].add(layer.layer_name)
-
-    capture.close()
-    
-    protocols_by_mac = {mac: list(protocols) for mac, protocols in protocols_by_mac.items()}
-    protocols_for_device_classification = protocols_by_mac
-    
-    return jsonify(protocols_by_mac)
 
 @app.route('/device-classification', methods=['POST'])
 def device_classification():
@@ -787,6 +803,41 @@ def device_classification():
         return jsonify(result), 200
     except Exception as e:
         return jsonify({'error': f'Error during device classification: {str(e)}'}), 500
+
+# Define a route for fetching IP addresses
+@app.route('/ip-addresses', methods=['GET'])
+def fetch_ip_addresses():
+    # Assuming pcap_file is available and contains the packets
+    pcap_file = os.path.join(UPLOAD_FOLDER, 'uploaded.pcap')
+    packets = rdpcap(pcap_file)
+    ip_address_mapping = {}
+    serial = 1
+
+    # Replace pcap_file with your actual packet data source
+    for packet in packets:
+        if 'Ether' in packet:
+            src_mac = packet['Ether'].src
+            dst_mac = packet['Ether'].dst
+            if 'IP' in packet:
+                src_ip = packet['IP'].src
+                dst_ip = packet['IP'].dst
+                if src_mac not in ip_address_mapping:
+                    ip_address_mapping[src_mac] = set()
+                if dst_mac not in ip_address_mapping:
+                    ip_address_mapping[dst_mac] = set()
+                ip_address_mapping[src_mac].add(src_ip)
+                ip_address_mapping[dst_mac].add(dst_ip)
+
+    # Prepare the response data
+    response_data = []
+    for mac in ip_address_mapping:
+        ip_set = list(ip_address_mapping[mac])  # Convert set to list
+        response_data.append({
+            "MAC": mac,
+            "IPs": ip_set
+        })
+
+    return jsonify(response_data)
 
 
 
@@ -847,6 +898,7 @@ def get_device_cve_info():
     #     print(mac, device_cve_info[mac])
 
     return jsonify(device_cve_info)
+
 
 
 

@@ -1,37 +1,32 @@
-import pyshark
-from scapy.all import rdpcap
+@app.route('/process_pcap', methods=['GET'])
+def process_pcap():
+    global protocols_for_device_classification
 
-pcap_file = 'C:\\Users\\A_R_COMPUTERS\\Downloads\\Plant1.pcap'
-capture = pyshark.FileCapture(pcap_file)
+    pcap_file_path = os.path.join(UPLOAD_FOLDER, 'uploaded.pcap')
 
-protocols_by_mac = {}
+    if not os.path.exists(pcap_file_path):
+        return jsonify({'error': 'PCAP file not found'}), 404
 
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
-def find_unique_mac_addresses(pcap_file):
-    packets = rdpcap(pcap_file)
-    mac_add_list_src = set(packet[0].src for packet in packets)
-    mac_add_list_dst = set(packet[0].dst for packet in packets)
-    unique_mac_addresses = set(mac_add_list_src.union(mac_add_list_dst))
-    unique_mac_addresses.discard('ff:ff:ff:ff:ff:ff')  # Optional: Remove broadcast address
-    return list(unique_mac_addresses)  # Convert the set to a list  
+    capture = pyshark.FileCapture(pcap_file_path)
+    unique_mac_addresses = find_unique_mac_addresses(pcap_file_path)
+    
+    protocols_by_mac = {mac: set() for mac in unique_mac_addresses}
+    
+    for packet in capture:
+        if hasattr(packet, 'eth'):
+            mac_address = packet.eth.src
+            if mac_address in protocols_by_mac:
+                if protocols_by_mac[mac_address] == "Unknown":
+                    protocols_by_mac[mac_address] = set()
+                for layer in packet.layers:
+                    protocols_by_mac[mac_address].add(layer.layer_name)
 
-
-unique_mac_addresses = find_unique_mac_addresses(pcap_file)
-
-# Initialize the dictionary with empty sets for each MAC address
-for mac in unique_mac_addresses:
-    protocols_by_mac[mac] = set()
-
-# Iterate through packets
-for packet in capture:
-    # Extract MAC address
-    mac_address = packet.eth.src
-
-    # Iterate over packet layers and collect protocol names
-    for layer in packet.layers:
-        protocols_by_mac[mac_address].add(layer.layer_name)
-
-# Print protocols for each MAC address
-for mac, protocols in protocols_by_mac.items():
-    print(f"MAC: {mac}, Protocols: {', '.join(protocols)}")
-print(len(protocols_by_mac))
+    capture.close()
+    
+    protocols_by_mac = {mac: list(protocols) for mac, protocols in protocols_by_mac.items()}
+    protocols_for_device_classification = protocols_by_mac
+    
+    return jsonify(protocols_by_mac)
