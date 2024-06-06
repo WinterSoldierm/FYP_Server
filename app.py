@@ -23,7 +23,8 @@ from macOUILookUp import get_mac_vendor_mapping
 from flask_session import Session
 import pyshark 
 import asyncio
-
+import requests
+from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 CORS(app)
@@ -358,24 +359,24 @@ def generate_network_topology():
         except Exception as e:
             return jsonify({'error': f'Error generating network topology: {str(e)}'}), 500
   
-@app.route('/device-classification', methods=['POST'])
-def device_classification():
-    try:
-        pcap_file_path = os.path.join(UPLOAD_FOLDER, 'uploaded.pcap')
+# @app.route('/device-classification', methods=['POST'])
+# def device_classification():
+#     try:
+#         pcap_file_path = os.path.join(UPLOAD_FOLDER, 'uploaded.pcap')
 
-        if not os.path.isfile(pcap_file_path):
-            return jsonify({'error': 'No pcap file uploaded'}), 404
+#         if not os.path.isfile(pcap_file_path):
+#             return jsonify({'error': 'No pcap file uploaded'}), 404
 
-        mac_ip_vendor_mapping = perform_mac_ip_vendor_mapping(pcap_file_path)
+#         mac_ip_vendor_mapping = perform_mac_ip_vendor_mapping(pcap_file_path)
 
-        # Path to the vendor database CSV file
-        vendor_DB_path = os.path.join(UPLOAD_FOLDER, 'mac vendor.csv')
+#         # Path to the vendor database CSV file
+#         vendor_DB_path = os.path.join(UPLOAD_FOLDER, 'mac vendor.csv')
 
-        classified_devices = perform_device_classification(mac_ip_vendor_mapping, vendor_DB_path)
+#         classified_devices = perform_device_classification(mac_ip_vendor_mapping, vendor_DB_path)
 
-        return jsonify({'success': 'Device classification successful', 'classified_devices': classified_devices}), 200
-    except Exception as e:
-        return jsonify({'error': f'Error during device classification: {str(e)}'}), 500
+#         return jsonify({'success': 'Device classification successful', 'classified_devices': classified_devices}), 200
+#     except Exception as e:
+#         return jsonify({'error': f'Error during device classification: {str(e)}'}), 500
 
 @app.route('/ip_address', methods=['GET'])
 def get_ip_addresses():
@@ -528,22 +529,213 @@ def find_ports():
 #     return jsonify(protocols_by_mac)
 
 
+# def find_unique_mac_addresses(pcap_file):
+#     packets = rdpcap(pcap_file)
+#     mac_add_list_src = set(packet[0].src for packet in packets)
+#     mac_add_list_dst = set(packet[0].dst for packet in packets)
+#     unique_mac_addresses = set(mac_add_list_src.union(mac_add_list_dst))
+#     unique_mac_addresses.discard('ff:ff:ff:ff:ff:ff')  # Optional: Remove broadcast address
+#     return list(unique_mac_addresses)  # Convert the set to a list
+
+# protocols_for_device_classification = {}
+
+# @app.route('/process_pcap', methods=['GET'])
+# def process_pcap():
+#     pcap_file_path = os.path.join(UPLOAD_FOLDER, 'uploaded.pcap')
+
+#     if not os.path.exists(pcap_file_path):
+#         return jsonify({'error': 'PCAP file not found'}), 404
+
+#     # Set up a new event loop for PyShark
+#     loop = asyncio.new_event_loop()
+#     asyncio.set_event_loop(loop)
+
+#     capture = pyshark.FileCapture(pcap_file_path)
+#     unique_mac_addresses = find_unique_mac_addresses(pcap_file_path)
+    
+#     protocols_by_mac = {mac: set() for mac in unique_mac_addresses}
+    
+#     # for packet in capture:
+#     #     if hasattr(packet, 'eth'):
+#     #         mac_address = packet.eth.src
+#     #         if mac_address in protocols_by_mac:
+#     #             for layer in packet.layers:
+#     #                 protocols_by_mac[mac_address].add(layer.layer_name)
+    
+#     for packet in capture:
+#             # Extract MAC address
+#             if hasattr(packet, 'eth'):
+#                 mac_address = packet.eth.src
+
+#                 # If MAC address is in the unique list, collect protocols
+#                 if mac_address in protocols_by_mac:
+#                     if protocols_by_mac[mac_address] == "Unknown":
+#                         protocols_by_mac[mac_address] = set()
+#                     # Iterate over packet layers and collect protocol names
+#                     for layer in packet.layers:
+#                         protocols_by_mac[mac_address].add(layer.layer_name)
+
+
+#     capture.close()
+    
+#     protocols_by_mac = {mac: list(protocols) for mac, protocols in protocols_by_mac.items()}
+    
+#     return jsonify(protocols_by_mac)
+
+
+
+
+
+
+
+
+
+# # List of OT protocols
+# ot_protocols_keywords = [
+#     'Modbus', 'DNP3', 'OPC UA', 'ProfiNet', 'EtherNet/IP', 'BACnet', 'CAN', 'IEC 60870-5-104',
+#     'S7comm', 'OPC DA', 'EtherCAT', 'NFS', 'CIP', 'CIPCM', 'HART', 'Profinet-IRT', 'FOUNDATION Fieldbus',
+#     'DeviceNet', 'ASi', 'CC-Link', 'LON', 'PROFIBUS', 'SERCOS', 'M-Bus', 'Modbus TCP',
+#     'Modbus IP', 'EtherCAT', 'POWERLINK', 'FF-HSE', 'IEC 61850', 'IEEE 1588', 'WirelessHART',
+#     'ISA100.11a', 'Zigbee',
+#     'IEC 60870-5-101', 'IEC 61850-8-1', 'IEC 61400-25', 'IEC 60870-6', 'IEC 61850-9-2', 'IEC 60870-6-TASE.2',
+#     'IEC 61400-25', 'DNP3 Secure Authentication (DNP3SA)', 'IEC 61158', 'IEC 62351', 'IEC 62056',
+#     'ISO/IEC 7816', 'IEC 62351', 'PROFINET RT', 'PROFINET IRT', 'PROFINET IO', 'PROFINET CBA',
+#     'PROFINET MRP', 'PROFINET MRPD', 'PROFINET MRPV', 'PROFINET MRPW', 'PROFINET DCP',
+#     'PROFINET SNMP', 'PROFINET LLDP', 'PROFINET DCP', 'PROFINET GSDML', 'PROFINET XML',
+#     'PROFINET FDL', 'PROFINET I&M', 'PROFINET IO-Link', 'CC-Link IE', 'CC-Link IE Control',
+#     'CC-Link Safety', 'CC-Link IE Motion', 'CC-Link IE Field', 'CC-Link IE Field Safety',
+#     'BACnet/IP', 'BACnet/MSTP', 'BACnet/IPv6', 'BACnet Ethernet', 'BACnet MS/TP', 'BACnet PTP',
+#     'BACnet B/IPv6', 'CIP Safety', 'CIP Motion', 'CIP Energy', 'CIP Sync', 'CIP Security'
+# ]
+
+# ot_protocols_keywords_lower = [protocol.lower() for protocol in ot_protocols_keywords]
+
+# def classify_devices_by_protocol(protocols_by_mac):
+#     it_ot_classification = {}
+#     serial = 1
+
+#     # Iterate through the original dictionary
+#     for mac_address, protocols in protocols_by_mac.items():
+#         if protocols == 'Unknown':
+#             classification = 'Unknown'
+#             protocol_list = set()
+#         else:
+#             # Convert the set of protocols to lowercase for case-insensitive comparison
+#             protocol_list = {protocol.lower() for protocol in protocols}
+
+#             # Determine if any of the protocols are in the OT protocols list
+#             classification = 'OT' if any(protocol in ot_protocols_keywords_lower for protocol in protocol_list) else 'IT'
+
+#         # Add the new entry to the result dictionary
+#         it_ot_classification[mac_address] = classification
+#         serial += 1
+
+#     return it_ot_classification
+
+# @app.route('/device-classification', methods=['POST'])
+# def device_classification():
+#     try:
+#         pcap_file_path = os.path.join(UPLOAD_FOLDER, 'uploaded.pcap')
+
+#         if not os.path.isfile(pcap_file_path):
+#             return jsonify({'error': 'No pcap file uploaded'}), 404
+
+
+#         # New classification based on protocols
+#         new_classifications = classify_devices_by_protocol(protocols_for_device_classification)
+
+#         result = {
+#             'success': 'Device classification successful',
+#             'new_classifications': new_classifications
+#         }
+
+#         return jsonify(result), 200
+#     except Exception as e:
+#         return jsonify({'error': f'Error during device classification: {str(e)}'}), 500
+
+
+
+
+ot_protocols_keywords = [
+    'Modbus', 'DNP3', 'OPC UA', 'ProfiNet', 'EtherNet/IP', 'BACnet', 'CAN', 'IEC 60870-5-104',
+    'S7comm', 'OPC DA', 'EtherCAT', 'NFS', 'CIP', 'CIPCM', 'HART', 'Profinet-IRT', 'FOUNDATION Fieldbus',
+    'DeviceNet', 'ASi', 'CC-Link', 'LON', 'PROFIBUS', 'SERCOS', 'M-Bus', 'Modbus TCP',
+    'Modbus IP', 'EtherCAT', 'POWERLINK', 'FF-HSE', 'IEC 61850', 'IEEE 1588', 'WirelessHART',
+    'ISA100.11a', 'Zigbee',
+    'IEC 60870-5-101', 'IEC 61850-8-1', 'IEC 61400-25', 'IEC 60870-6', 'IEC 61850-9-2', 'IEC 60870-6-TASE.2',
+    'IEC 61400-25', 'DNP3 Secure Authentication (DNP3SA)', 'IEC 61158', 'IEC 62351', 'IEC 62056',
+    'ISO/IEC 7816', 'IEC 62351', 'PROFINET RT', 'PROFINET IRT', 'PROFINET IO', 'PROFINET CBA',
+    'PROFINET MRP', 'PROFINET MRPD', 'PROFINET MRPV', 'PROFINET MRPW', 'PROFINET DCP',
+    'PROFINET SNMP', 'PROFINET LLDP', 'PROFINET DCP', 'PROFINET GSDML', 'PROFINET XML',
+    'PROFINET FDL', 'PROFINET I&M', 'PROFINET IO-Link', 'CC-Link IE', 'CC-Link IE Control',
+    'CC-Link Safety', 'CC-Link IE Motion', 'CC-Link IE Field', 'CC-Link IE Field Safety',
+    'BACnet/IP', 'BACnet/MSTP', 'BACnet/IPv6', 'BACnet Ethernet', 'BACnet MS/TP', 'BACnet PTP',
+    'BACnet B/IPv6', 'CIP Safety', 'CIP Motion', 'CIP Energy', 'CIP Sync', 'CIP Security'
+]
+
+ot_protocols_keywords_lower = [protocol.lower() for protocol in ot_protocols_keywords]
+
 def find_unique_mac_addresses(pcap_file):
     packets = rdpcap(pcap_file)
-    mac_add_list_src = set(packet[0].src for packet in packets)
-    mac_add_list_dst = set(packet[0].dst for packet in packets)
+    mac_add_list_src = set(packet[Ether].src for packet in packets if Ether in packet)
+    mac_add_list_dst = set(packet[Ether].dst for packet in packets if Ether in packet)
     unique_mac_addresses = set(mac_add_list_src.union(mac_add_list_dst))
     unique_mac_addresses.discard('ff:ff:ff:ff:ff:ff')  # Optional: Remove broadcast address
     return list(unique_mac_addresses)  # Convert the set to a list
 
+def perform_mac_ip_vendor_mapping(pcap_file_path):
+    manuf_db = manuf.MacParser()
+    mac_ip_vendor_mapping = {}
+    vendor = {}
+    ip_address_mapping = {}
+
+    packets = rdpcap(pcap_file_path)
+    for packet in packets:
+        if Ether in packet:
+            src_mac = packet[Ether].src
+            dst_mac = packet[Ether].dst
+            if IP in packet:
+                src_ip = packet[IP].src
+                dst_ip = packet[IP].dst
+                ip_address_mapping.setdefault(src_mac, set()).add(src_ip)
+                ip_address_mapping.setdefault(dst_mac, set()).add(dst_ip)
+                vendor[src_mac] = manuf_db.get_manuf(src_mac)
+                vendor[dst_mac] = manuf_db.get_manuf(dst_mac)
+
+    for mac in ip_address_mapping:
+        mac_ip_vendor_mapping[mac] = {"IP": list(ip_address_mapping[mac]), "Vendors": vendor.get(mac, "Unknown")}
+
+    return mac_ip_vendor_mapping
+
+def classify_devices_by_protocol(protocols_by_mac):
+    it_ot_classification = {}
+    serial = 1
+
+    for mac_address, protocols in protocols_by_mac.items():
+        if protocols == 'Unknown':
+            classification = 'Unknown'
+            protocol_list = set()
+        else:
+            protocol_list = {protocol.lower() for protocol in protocols}
+            classification = 'OT' if any(protocol in ot_protocols_keywords_lower for protocol in protocol_list) else 'IT'
+
+        it_ot_classification[mac_address] = classification
+        serial += 1
+
+    return it_ot_classification
+
+protocols_for_device_classification = {}
+
+
 @app.route('/process_pcap', methods=['GET'])
 def process_pcap():
+    global protocols_for_device_classification
+
     pcap_file_path = os.path.join(UPLOAD_FOLDER, 'uploaded.pcap')
 
     if not os.path.exists(pcap_file_path):
         return jsonify({'error': 'PCAP file not found'}), 404
 
-    # Set up a new event loop for PyShark
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
@@ -552,32 +744,109 @@ def process_pcap():
     
     protocols_by_mac = {mac: set() for mac in unique_mac_addresses}
     
-    # for packet in capture:
-    #     if hasattr(packet, 'eth'):
-    #         mac_address = packet.eth.src
-    #         if mac_address in protocols_by_mac:
-    #             for layer in packet.layers:
-    #                 protocols_by_mac[mac_address].add(layer.layer_name)
-    
     for packet in capture:
-            # Extract MAC address
-            if hasattr(packet, 'eth'):
-                mac_address = packet.eth.src
-
-                # If MAC address is in the unique list, collect protocols
-                if mac_address in protocols_by_mac:
-                    if protocols_by_mac[mac_address] == "Unknown":
-                        protocols_by_mac[mac_address] = set()
-                    # Iterate over packet layers and collect protocol names
-                    for layer in packet.layers:
-                        protocols_by_mac[mac_address].add(layer.layer_name)
-
+        if hasattr(packet, 'eth'):
+            mac_address = packet.eth.src
+            if mac_address in protocols_by_mac:
+                if protocols_by_mac[mac_address] == "Unknown":
+                    protocols_by_mac[mac_address] = set()
+                for layer in packet.layers:
+                    protocols_by_mac[mac_address].add(layer.layer_name)
 
     capture.close()
-
+    
     protocols_by_mac = {mac: list(protocols) for mac, protocols in protocols_by_mac.items()}
+    protocols_for_device_classification = protocols_by_mac
     
     return jsonify(protocols_by_mac)
+
+@app.route('/device-classification', methods=['POST'])
+def device_classification():
+    global protocols_for_device_classification
+
+    try:
+        if not protocols_for_device_classification:
+            return jsonify({'error': 'No protocols data available for classification'}), 404
+
+        mac_ip_vendor_mapping = perform_mac_ip_vendor_mapping(os.path.join(UPLOAD_FOLDER, 'uploaded.pcap'))
+        new_classifications = classify_devices_by_protocol(protocols_for_device_classification)
+
+        classified_devices = {}
+        for mac, classification in new_classifications.items():
+            classified_devices[mac] = {
+                "IP": mac_ip_vendor_mapping.get(mac, {}).get("IP", []),
+                "Vendors": mac_ip_vendor_mapping.get(mac, {}).get("Vendors", "Unknown"),
+                "category": classification
+            }
+
+        result = {
+            'success': 'Device classification successful',
+            'classified_devices': classified_devices
+        }
+
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({'error': f'Error during device classification: {str(e)}'}), 500
+
+
+
+
+
+
+
+device_cve_info = {}
+
+def get_mac_vendor_mapping(pcap_file_path):
+    manuf_db = manuf.MacParser()
+    mac_vendor_mapping = {}
+    unique_mac = find_unique_mac_addresses(pcap_file_path)  # Assuming you have implemented find_unique_mac_addresses
+    for mac_address in unique_mac:
+        vendor = manuf_db.get_manuf_long(mac_address)
+        mac_vendor_mapping[mac_address] = vendor
+    return mac_vendor_mapping
+
+def get_cve_data(vendor):
+    url = "https://nvd.nist.gov/vuln/search/results?form_type=Basic&results_type=overview&query=" + vendor + "&search_type=all&isCpeNameSearch=false"
+    response = requests.get(url)
+    soup = BeautifulSoup(response.content, "html.parser")
+    table = soup.find("table", class_="table table-striped table-hover")
+
+    vuln_id = None
+    summary = None
+    cvss_severity = None
+    for row in table.find_all("tr")[1:]:
+        vuln_id_cell = row.find("a")
+        summary_cell = row.find("p")
+        cvss_severity_cell = row.find("a", class_="label")
+
+        if vuln_id_cell:
+            vuln_id = vuln_id_cell.text
+        if summary_cell:
+            summary = summary_cell.text
+        if cvss_severity_cell:
+            cvss_severity = cvss_severity_cell.text
+
+    return vuln_id, summary, cvss_severity
+
+@app.route('/device-cve-info', methods=['GET'])
+def get_device_cve_info():
+    pcap_file = os.path.join(UPLOAD_FOLDER, 'uploaded.pcap')
+    mac_vendor_mapping = get_mac_vendor_mapping(pcap_file)
+    for mac in mac_vendor_mapping:
+        # print(mac)
+        Vendor = str(mac_vendor_mapping[mac])
+        # print(Vendor)
+        device_cve_info[mac] = {
+            "Vendor": Vendor,
+            "CVE ID": get_cve_data(Vendor)[0],
+            "Summary": get_cve_data(Vendor)[1],
+            "Severity Score": get_cve_data(Vendor)[2]
+        }
+    
+    # for mac in device_cve_info:
+    #     print(mac, device_cve_info[mac])
+
+    return jsonify(device_cve_info)
 
 
 

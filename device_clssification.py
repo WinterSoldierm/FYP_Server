@@ -1,10 +1,10 @@
-from flask import jsonify
-import os
-import pandas as pd
-from scapy.all import rdpcap, Ether, IP
-import manuf
+# from flask import jsonify
+# import os
+# import pandas as pd
+# from scapy.all import rdpcap, Ether, IP
+# import manuf
 
-UPLOAD_FOLDER = 'C:\\Users\\A_R_COMPUTERS\\OneDrive\\Desktop\\FYP\\server\\PCAP'
+# UPLOAD_FOLDER = 'C:\\Users\\A_R_COMPUTERS\\OneDrive\\Desktop\\FYP\\server\\PCAP'
 
 # def perform_mac_ip_vendor_mapping(pcap_file_path):
 #     manuf_db = manuf.MacParser()
@@ -148,7 +148,13 @@ UPLOAD_FOLDER = 'C:\\Users\\A_R_COMPUTERS\\OneDrive\\Desktop\\FYP\\server\\PCAP'
 
 
 
+from flask import jsonify
+import os
+import pandas as pd
+from scapy.all import rdpcap, Ether, IP
+import manuf
 
+UPLOAD_FOLDER = 'C:\\Users\\A_R_COMPUTERS\\OneDrive\\Desktop\\FYP\\server\\PCAP'
 
 class TrieNode:
     def __init__(self):
